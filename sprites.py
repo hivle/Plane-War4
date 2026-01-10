@@ -1,9 +1,8 @@
 import pygame
 import os
-import random
+import random  # <--- Added this back!
 
 # --- 1. FORCE INIT ---
-# We initialize here so images can load even if main.py hasn't started yet
 pygame.init()
 
 # --- CONSTANTS ---
@@ -16,14 +15,15 @@ def load_img(path, size=None):
             surf = pygame.Surface(size if size else (50,50))
             surf.fill((255, 0, 255)) 
             return surf
-        # REMOVED .convert_alpha() to prevent "Black Box" issue
         img = pygame.image.load(path) 
         if size: img = pygame.transform.scale(img, size)
         return img
     except:
         return pygame.Surface(size if size else (50,50))
 
+# --- SLICING HELPERS ---
 def slice_4x4(sheet):
+    """Slices a 4x4 sheet (like the explosion)"""
     frames = []
     sheet_w, sheet_h = sheet.get_size()
     frame_w = sheet_w // 4
@@ -42,21 +42,42 @@ def slice_4x4(sheet):
                 pass
     return frames
 
+def slice_row(sheet, total_frames):
+    """Slices a single row sheet (like the bullet)"""
+    frames = []
+    sheet_w, sheet_h = sheet.get_size()
+    frame_w = sheet_w // total_frames
+    
+    for i in range(total_frames):
+        x = i * frame_w
+        # Cut the frame from the sheet
+        rect = pygame.Rect(x, 0, frame_w, sheet_h)
+        try:
+            image = sheet.subsurface(rect)
+            # Scale to 30x30 for the game
+            image = pygame.transform.scale(image, (30, 30))
+            frames.append(image)
+        except:
+            pass
+    return frames
+
 # --- LOAD SPRITE ASSETS ---
 plane_img = load_img(os.path.join('resources','plane.png'), (50, 50))
 enemy_img = load_img(os.path.join('resources','HENRY.png'), (50, 50))
+
+# 1. Explosion Sheet (4x4)
 explosion_sheet = load_img(os.path.join('resources','explosion.png')) 
 explosion_anim = slice_4x4(explosion_sheet)
 
-travel_frames = []
-for i in range(1, 5): 
-    img = load_img(os.path.join('resources', 'sprites', f'b{i}.png'), (30, 30))
-    travel_frames.append(img)
+# 2. Bullet Sheet (1 Row, 7 Frames)
+bullet_sheet = load_img(os.path.join('resources', 'sprites', 'bullet.png'))
+all_bullet_frames = slice_row(bullet_sheet, 7)
 
-hit_frames = []
-for i in range(5, 8): 
-    img = load_img(os.path.join('resources', 'sprites', f'b{i}.png'), (30, 30))
-    hit_frames.append(img)
+# Split the frames:
+# First 4 frames = Travel (b1-b4)
+travel_frames = all_bullet_frames[:4] 
+# Last 3 frames = Hit (b5-b7)
+hit_frames = all_bullet_frames[4:]
 
 
 # --- CLASSES ---
