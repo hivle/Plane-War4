@@ -20,7 +20,7 @@ try:
     arcadefont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 15)
     titlefont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 40)
     btnfont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 25)
-except:
+except (pygame.error, OSError):
     arcadefont = pygame.font.SysFont('arial', 15, bold=True)
     titlefont = pygame.font.SysFont('arial', 40, bold=True)
     btnfont = pygame.font.SysFont('arial', 25, bold=True)
@@ -30,7 +30,7 @@ try:
     pygame.mixer.music.load(os.path.join('resources','sound','Street Fighter - Guile Stage.mp3'))
     pygame.mixer.music.play(-1)
     pygame.mixer.music.set_volume(0.3)
-except:
+except (pygame.error, OSError):
     pass
 
 def draw_text(text, font, color, surface, x, y, align="left"):
@@ -52,13 +52,15 @@ all_sprites.add(player)
 
 running = True
 in_menu = True
+paused = False
 spawn_timer = 0
 shoot_timer = 0
 bg_y = 0
 
 # --- MAIN LOOP ---
 while running:
-    dt = clock.tick(60) / 1000.0 
+    # Cap dt so a long pause (window drag, GC) can't teleport sprites through each other.
+    dt = min(clock.tick(60) / 1000.0, 1 / 30.0)
 
     # --- MENU LOOP ---
     if in_menu:
@@ -79,66 +81,80 @@ while running:
     # --- GAME LOOP ---
     for event in pygame.event.get():
         if event.type == pygame.QUIT: running = False
+        if event.type == pygame.KEYDOWN and event.key in (pygame.K_p, pygame.K_ESCAPE):
+            paused = not paused
 
-    # Shoot
-    shoot_timer += dt
-    if shoot_timer > 0.6: 
-        b = Bullet(player.rect.centerx, player.rect.top)
-        all_sprites.add(b)
-        bullets.add(b)
-        shoot_timer = 0
+    if not paused:
+        # Shoot
+        shoot_timer += dt
+        if shoot_timer > 0.6:
+            b = Bullet(player.rect.centerx, player.rect.top)
+            all_sprites.add(b)
+            bullets.add(b)
+            shoot_timer -= 0.6
 
-    # Spawn
-    spawn_timer += dt
-    if spawn_timer > 1.2: 
-        e = Enemy()
-        all_sprites.add(e)
-        enemies.add(e)
-        spawn_timer = 0
+        # Spawn
+        spawn_timer += dt
+        if spawn_timer > 1.2:
+            e = Enemy()
+            all_sprites.add(e)
+            enemies.add(e)
+            spawn_timer -= 1.2
 
-    all_sprites.update(dt)
+        all_sprites.update(dt)
 
-    # --- COLLISION: BULLETS vs ENEMIES ---
-    hits = pygame.sprite.groupcollide(enemies, bullets, False, False)
-    for enemy, bullet_list in hits.items():
-        if enemy.dying:
-            continue
+        # --- COLLISION: BULLETS vs ENEMIES ---
+        hits = pygame.sprite.groupcollide(enemies, bullets, False, False)
+        for enemy, bullet_list in hits.items():
+            if enemy.dying:
+                continue
 
-        for b in bullet_list:
-            if not b.exploding:
-                b.explode() 
-                enemy.hp -= 1 
-                if enemy.hp <= 0:
-                    enemy.die()
+            for b in bullet_list:
+                if not b.exploding:
+                    b.explode()
+                    enemy.hp -= 1
+                    if enemy.hp <= 0:
+                        enemy.die()
 
-    # --- COLLISION: PLAYER vs ENEMIES (UPDATED) ---
-    # Change True to False so the enemy stays alive to play animation
-    hit_player = pygame.sprite.spritecollide(player, enemies, False) 
-    
-    if hit_player:
-        for e in hit_player:
-            # Only trigger damage if the enemy isn't ALREADY exploding
-            if not e.dying:
-                player.health -= 20
-                e.die() # Trigger the explosion animation
-        
-        if player.health <= 0: 
-            running = False
+        # --- COLLISION: PLAYER vs ENEMIES (UPDATED) ---
+        # Change True to False so the enemy stays alive to play animation
+        hit_player = pygame.sprite.spritecollide(player, enemies, False)
 
-    # Draw Background
-    bg_y += 100 * dt
-    if bg_y >= HEIGHT: bg_y = 0
+        if hit_player:
+            for e in hit_player:
+                # Only trigger damage if the enemy isn't ALREADY exploding
+                if not e.dying:
+                    player.health -= 20
+                    e.die() # Trigger the explosion animation
+
+            if player.health <= 0:
+                running = False
+
+        # Draw Background
+        bg_y += 100 * dt
+        if bg_y >= HEIGHT: bg_y = 0
+
     screen.blit(bg_img, (0, int(bg_y)))
     screen.blit(bg_img, (0, int(bg_y) - HEIGHT))
-    
+
     all_sprites.draw(screen)
 
     # UI
-    pygame.draw.rect(screen, (0,0,255), (20, 670, int(player.energy), 20)) 
-    pygame.draw.rect(screen, (255,255,255), (18, 668, 104, 24), 2) 
-    pygame.draw.rect(screen, (255,0,0), (320, 670, int(player.health), 20)) 
-    pygame.draw.rect(screen, (255,255,255), (318, 668, 104, 24), 2) 
-    
+    draw_text("ENERGY", arcadefont, (255,255,255), screen, 20, 650)
+    pygame.draw.rect(screen, (0,0,255), (20, 670, int(player.energy), 20))
+    pygame.draw.rect(screen, (255,255,255), (18, 668, 104, 24), 2)
+    draw_text("HEALTH", arcadefont, (255,255,255), screen, 320, 650)
+    pygame.draw.rect(screen, (255,0,0), (320, 670, int(player.health), 20))
+    pygame.draw.rect(screen, (255,255,255), (318, 668, 104, 24), 2)
+
+    if paused:
+        overlay = pygame.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(128)
+        overlay.fill((0, 0, 0))
+        screen.blit(overlay, (0, 0))
+        draw_text("PAUSED", titlefont, (255,255,255), screen, WIDTH//2, HEIGHT//2 - 20, "center")
+        draw_text("Press P to resume", arcadefont, (255,255,255), screen, WIDTH//2, HEIGHT//2 + 30, "center")
+
     pygame.display.flip()
 
 pygame.quit()
