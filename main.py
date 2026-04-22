@@ -140,10 +140,13 @@ while running:
     all_sprites.draw(screen)
 
     # UI
-    draw_text("ENERGY", arcadefont, (255,255,255), screen, 20, 650)
+    if player.energy <= 0 and (pygame.time.get_ticks() // 300) % 2 == 0:
+        draw_text("LOW ENERGY", arcadefont, (255, 60, 60), screen, 70, 650, "center")
+    else:
+        draw_text("ENERGY", arcadefont, (255,255,255), screen, 70, 650, "center")
     pygame.draw.rect(screen, (0,0,255), (20, 670, int(player.energy), 20))
     pygame.draw.rect(screen, (255,255,255), (18, 668, 104, 24), 2)
-    draw_text("HEALTH", arcadefont, (255,255,255), screen, 320, 650)
+    draw_text("HEALTH", arcadefont, (255,255,255), screen, 370, 650, "center")
     pygame.draw.rect(screen, (255,0,0), (320, 670, int(player.health), 20))
     pygame.draw.rect(screen, (255,255,255), (318, 668, 104, 24), 2)
 
