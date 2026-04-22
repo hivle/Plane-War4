@@ -28,6 +28,8 @@ python main.py
 | `W` / `A` / `S` / `D` or arrow keys | Move the plane |
 | `Shift` (Left or Right) | Boost (consumes energy, regenerates when released) |
 | `P` or `Esc` | Pause / resume |
+| `R` | Restart (on the game-over screen) |
+| `M` | Return to main menu (on the game-over screen) |
 | Mouse click on `PLAY` / `EXIT` | Menu navigation |
 
 Bullets fire automatically every 0.6 seconds. Enemies spawn from the top. Contact with an enemy costs 20 health.
