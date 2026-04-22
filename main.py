@@ -21,15 +21,13 @@ try:
     # where they're rendered). Larger title/button sizes look smoother with AA
     # on, which draw_text does by default.
     arcadefont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 16)
-    energyfont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 10)
-    healthfont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 8)
+    barfont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 10)
     titlefont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 40)
     btnfont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 24)
     font_is_pixel = True
 except (pygame.error, OSError):
     arcadefont = pygame.font.SysFont('arial', 16, bold=True)
-    energyfont = pygame.font.SysFont('arial', 10, bold=True)
-    healthfont = pygame.font.SysFont('arial', 8, bold=True)
+    barfont = pygame.font.SysFont('arial', 10, bold=True)
     titlefont = pygame.font.SysFont('arial', 40, bold=True)
     btnfont = pygame.font.SysFont('arial', 24, bold=True)
     font_is_pixel = False
@@ -69,21 +67,16 @@ spawn_timer = 0
 shoot_timer = 0
 bg_y = 0
 
-# HUD: both bars stacked on the right, health on top (smaller), energy below
-ENERGY_FILL_W = 100
-ENERGY_FILL_H = 12
-ENERGY_BOX_W = ENERGY_FILL_W + 4
-ENERGY_BOX_H = ENERGY_FILL_H + 4
-# Health bar is 75% of the energy bar — same aspect ratio, smaller overall.
-HEALTH_FILL_W = int(ENERGY_FILL_W * 0.75)
-HEALTH_FILL_H = int(ENERGY_FILL_H * 0.75)
-HEALTH_BOX_W = HEALTH_FILL_W + 4
-HEALTH_BOX_H = HEALTH_FILL_H + 4
-HUD_X = WIDTH - ENERGY_BOX_W - 16
-ENERGY_BOX_Y = HEIGHT - ENERGY_BOX_H - 8
-HEALTH_BOX_Y = ENERGY_BOX_Y - HEALTH_BOX_H - 4
-HEALTH_BOX = pygame.Rect(HUD_X, HEALTH_BOX_Y, HEALTH_BOX_W, HEALTH_BOX_H)
-ENERGY_BOX = pygame.Rect(HUD_X, ENERGY_BOX_Y, ENERGY_BOX_W, ENERGY_BOX_H)
+# HUD: both bars stacked on the right, identical size, health on top, energy below
+BAR_FILL_W = 100
+BAR_FILL_H = 12
+BOX_W = BAR_FILL_W + 4
+BOX_H = BAR_FILL_H + 4
+HUD_X = WIDTH - BOX_W - 16
+ENERGY_BOX_Y = HEIGHT - BOX_H - 8
+HEALTH_BOX_Y = ENERGY_BOX_Y - BOX_H - 4
+HEALTH_BOX = pygame.Rect(HUD_X, HEALTH_BOX_Y, BOX_W, BOX_H)
+ENERGY_BOX = pygame.Rect(HUD_X, ENERGY_BOX_Y, BOX_W, BOX_H)
 HUD_FADE_SPEED = 1000  # alpha units per second
 energy_alpha = 255.0
 health_alpha = 255.0
@@ -208,25 +201,25 @@ while running:
     aa = not font_is_pixel
 
     # Energy bar (bottom)
-    energy_fill = int(max(0, min(player.energy, 100)) / 100 * ENERGY_FILL_W)
-    energy_surf = pygame.Surface((ENERGY_BOX_W, ENERGY_BOX_H), pygame.SRCALPHA)
-    pygame.draw.rect(energy_surf, (0,0,255), (2, 2, energy_fill, ENERGY_FILL_H))
-    pygame.draw.rect(energy_surf, (255,255,255), (0, 0, ENERGY_BOX_W, ENERGY_BOX_H), 2)
+    energy_fill = int(max(0, min(player.energy, 100)) / 100 * BAR_FILL_W)
+    energy_surf = pygame.Surface((BOX_W, BOX_H), pygame.SRCALPHA)
+    pygame.draw.rect(energy_surf, (0,0,255), (2, 2, energy_fill, BAR_FILL_H))
+    pygame.draw.rect(energy_surf, (255,255,255), (0, 0, BOX_W, BOX_H), 2)
     if player.energy < 30 and (pygame.time.get_ticks() // 300) % 2 == 0:
-        label = energyfont.render("LOW ENERGY", aa, (255, 60, 60))
+        label = barfont.render("LOW ENERGY", aa, (255, 60, 60))
     else:
-        label = energyfont.render("ENERGY", aa, (255,255,255))
-    energy_surf.blit(label, label.get_rect(center=(ENERGY_BOX_W // 2, ENERGY_BOX_H // 2)))
+        label = barfont.render("ENERGY", aa, (255,255,255))
+    energy_surf.blit(label, label.get_rect(center=(BOX_W // 2, BOX_H // 2)))
     energy_surf.set_alpha(int(energy_alpha))
     screen.blit(energy_surf, ENERGY_BOX.topleft)
 
-    # Health bar (top, 75% size, smaller label to match)
-    health_fill = int(max(0, min(player.health, 100)) / 100 * HEALTH_FILL_W)
-    health_surf = pygame.Surface((HEALTH_BOX_W, HEALTH_BOX_H), pygame.SRCALPHA)
-    pygame.draw.rect(health_surf, (255,0,0), (2, 2, health_fill, HEALTH_FILL_H))
-    pygame.draw.rect(health_surf, (255,255,255), (0, 0, HEALTH_BOX_W, HEALTH_BOX_H), 2)
-    label = healthfont.render("HEALTH", aa, (255,255,255))
-    health_surf.blit(label, label.get_rect(center=(HEALTH_BOX_W // 2, HEALTH_BOX_H // 2)))
+    # Health bar (top, same size as energy bar)
+    health_fill = int(max(0, min(player.health, 100)) / 100 * BAR_FILL_W)
+    health_surf = pygame.Surface((BOX_W, BOX_H), pygame.SRCALPHA)
+    pygame.draw.rect(health_surf, (255,0,0), (2, 2, health_fill, BAR_FILL_H))
+    pygame.draw.rect(health_surf, (255,255,255), (0, 0, BOX_W, BOX_H), 2)
+    label = barfont.render("HEALTH", aa, (255,255,255))
+    health_surf.blit(label, label.get_rect(center=(BOX_W // 2, BOX_H // 2)))
     health_surf.set_alpha(int(health_alpha))
     screen.blit(health_surf, HEALTH_BOX.topleft)
 
