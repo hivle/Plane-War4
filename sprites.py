@@ -151,16 +151,16 @@ class Bullet(pygame.sprite.Sprite):
         
         self.anim_timer += dt
         threshold = 0.05 if self.exploding else 0.50
-        
-        if self.anim_timer >= threshold: 
-            self.anim_timer = 0
+
+        while self.anim_timer >= threshold:
+            self.anim_timer -= threshold
             self.current_frame += 1
             if self.current_frame >= len(self.frames):
                 if self.exploding:
                     self.kill()
                     return
                 else:
-                    self.current_frame = 0 
+                    self.current_frame = 0
             self.image = self.frames[self.current_frame]
 
         if self.rect.bottom < 0: self.kill()
@@ -193,15 +193,15 @@ class Enemy(pygame.sprite.Sprite):
             self.rect.y = int(self.pos_y)
         else:
             self.anim_timer += dt
-            if self.anim_timer >= 0.05: 
-                self.anim_timer = 0
+            while self.anim_timer >= 0.05:
+                self.anim_timer -= 0.05
                 self.current_frame += 1
-                
+
                 if self.current_frame >= len(self.explosion_frames):
                     self.kill()
                     return
-                
-                center = self.rect.center 
+
+                center = self.rect.center
                 self.image = self.explosion_frames[self.current_frame]
                 self.rect = self.image.get_rect()
                 self.rect.center = center

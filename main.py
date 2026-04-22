@@ -58,7 +58,8 @@ bg_y = 0
 
 # --- MAIN LOOP ---
 while running:
-    dt = clock.tick(60) / 1000.0 
+    # Cap dt so a long pause (window drag, GC) can't teleport sprites through each other.
+    dt = min(clock.tick(60) / 1000.0, 1 / 30.0)
 
     # --- MENU LOOP ---
     if in_menu:
@@ -134,10 +135,12 @@ while running:
     all_sprites.draw(screen)
 
     # UI
-    pygame.draw.rect(screen, (0,0,255), (20, 670, int(player.energy), 20)) 
-    pygame.draw.rect(screen, (255,255,255), (18, 668, 104, 24), 2) 
-    pygame.draw.rect(screen, (255,0,0), (320, 670, int(player.health), 20)) 
-    pygame.draw.rect(screen, (255,255,255), (318, 668, 104, 24), 2) 
+    draw_text("ENERGY", arcadefont, (255,255,255), screen, 20, 650)
+    pygame.draw.rect(screen, (0,0,255), (20, 670, int(player.energy), 20))
+    pygame.draw.rect(screen, (255,255,255), (18, 668, 104, 24), 2)
+    draw_text("HEALTH", arcadefont, (255,255,255), screen, 320, 650)
+    pygame.draw.rect(screen, (255,0,0), (320, 670, int(player.health), 20))
+    pygame.draw.rect(screen, (255,255,255), (318, 668, 104, 24), 2)
     
     pygame.display.flip()
 
