@@ -17,13 +17,17 @@ menu_bg = load_img(os.path.join('resources','menupicture.jpg'), (WIDTH, HEIGHT))
 
 # Fonts
 try:
-    arcadefont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 15)
+    # ka1 is a pixel font — use sizes that are clean multiples of 8 so glyphs
+    # stay on the pixel grid. Rendering is done with antialiasing off.
+    arcadefont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 16)
     titlefont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 40)
-    btnfont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 25)
+    btnfont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 24)
+    font_is_pixel = True
 except (pygame.error, OSError):
-    arcadefont = pygame.font.SysFont('arial', 15, bold=True)
+    arcadefont = pygame.font.SysFont('arial', 16, bold=True)
     titlefont = pygame.font.SysFont('arial', 40, bold=True)
-    btnfont = pygame.font.SysFont('arial', 25, bold=True)
+    btnfont = pygame.font.SysFont('arial', 24, bold=True)
+    font_is_pixel = False
 
 # Audio
 try:
@@ -34,7 +38,8 @@ except (pygame.error, OSError):
     pass
 
 def draw_text(text, font, color, surface, x, y, align="left"):
-    textobj = font.render(text, True, color)
+    # Disable antialiasing for the pixel font so glyphs render crisp and on-grid.
+    textobj = font.render(text, not font_is_pixel, color)
     textrect = textobj.get_rect()
     if align == "center":
         textrect.center = (x, y)
@@ -57,9 +62,14 @@ spawn_timer = 0
 shoot_timer = 0
 bg_y = 0
 
-# HUD fade state
-ENERGY_BOX = pygame.Rect(18, 668, 104, 24)
-HEALTH_BOX = pygame.Rect(318, 668, 104, 24)
+# HUD: both bars stacked on the right, health on top, energy below
+BAR_FILL_W = 150
+BAR_FILL_H = 20
+BOX_W = BAR_FILL_W + 4
+BOX_H = BAR_FILL_H + 4
+HUD_X = WIDTH - BOX_W - 16
+HEALTH_BOX = pygame.Rect(HUD_X, 636, BOX_W, BOX_H)
+ENERGY_BOX = pygame.Rect(HUD_X, 668, BOX_W, BOX_H)
 HUD_FADE_SPEED = 1000  # alpha units per second
 energy_alpha = 255.0
 health_alpha = 255.0
@@ -159,24 +169,27 @@ while running:
     elif health_alpha > health_target:
         health_alpha = max(health_alpha - step, health_target)
 
-    # Energy bar
-    energy_surf = pygame.Surface((ENERGY_BOX.width, ENERGY_BOX.height), pygame.SRCALPHA)
-    pygame.draw.rect(energy_surf, (0,0,255), (2, 2, int(player.energy), 20))
-    pygame.draw.rect(energy_surf, (255,255,255), (0, 0, ENERGY_BOX.width, ENERGY_BOX.height), 2)
+    # Energy bar (bottom)
+    energy_fill = int(max(0, min(player.energy, 100)) / 100 * BAR_FILL_W)
+    energy_surf = pygame.Surface((BOX_W, BOX_H), pygame.SRCALPHA)
+    pygame.draw.rect(energy_surf, (0,0,255), (2, 2, energy_fill, BAR_FILL_H))
+    pygame.draw.rect(energy_surf, (255,255,255), (0, 0, BOX_W, BOX_H), 2)
+    aa = not font_is_pixel
     if player.energy < 30 and (pygame.time.get_ticks() // 300) % 2 == 0:
-        label = arcadefont.render("LOW ENERGY", True, (255, 60, 60))
+        label = arcadefont.render("LOW ENERGY", aa, (255, 60, 60))
     else:
-        label = arcadefont.render("ENERGY", True, (255,255,255))
-    energy_surf.blit(label, label.get_rect(center=(ENERGY_BOX.width // 2, ENERGY_BOX.height // 2)))
+        label = arcadefont.render("ENERGY", aa, (255,255,255))
+    energy_surf.blit(label, label.get_rect(center=(BOX_W // 2, BOX_H // 2)))
     energy_surf.set_alpha(int(energy_alpha))
     screen.blit(energy_surf, ENERGY_BOX.topleft)
 
-    # Health bar
-    health_surf = pygame.Surface((HEALTH_BOX.width, HEALTH_BOX.height), pygame.SRCALPHA)
-    pygame.draw.rect(health_surf, (255,0,0), (2, 2, int(player.health), 20))
-    pygame.draw.rect(health_surf, (255,255,255), (0, 0, HEALTH_BOX.width, HEALTH_BOX.height), 2)
-    label = arcadefont.render("HEALTH", True, (255,255,255))
-    health_surf.blit(label, label.get_rect(center=(HEALTH_BOX.width // 2, HEALTH_BOX.height // 2)))
+    # Health bar (top)
+    health_fill = int(max(0, min(player.health, 100)) / 100 * BAR_FILL_W)
+    health_surf = pygame.Surface((BOX_W, BOX_H), pygame.SRCALPHA)
+    pygame.draw.rect(health_surf, (255,0,0), (2, 2, health_fill, BAR_FILL_H))
+    pygame.draw.rect(health_surf, (255,255,255), (0, 0, BOX_W, BOX_H), 2)
+    label = arcadefont.render("HEALTH", aa, (255,255,255))
+    health_surf.blit(label, label.get_rect(center=(BOX_W // 2, BOX_H // 2)))
     health_surf.set_alpha(int(health_alpha))
     screen.blit(health_surf, HEALTH_BOX.topleft)
 
