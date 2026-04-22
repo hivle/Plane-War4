@@ -17,14 +17,19 @@ menu_bg = load_img(os.path.join('resources','menupicture.jpg'), (WIDTH, HEIGHT))
 
 # Fonts
 try:
-    # ka1 is a pixel font — use sizes that are clean multiples of 8 so glyphs
-    # stay on the pixel grid. Rendering is done with antialiasing off.
+    # ka1 is a pixel font. Small HUD sizes look crispest with AA off (handled
+    # where they're rendered). Larger title/button sizes look smoother with AA
+    # on, which draw_text does by default.
     arcadefont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 16)
+    energyfont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 10)
+    healthfont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 8)
     titlefont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 40)
     btnfont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 24)
     font_is_pixel = True
 except (pygame.error, OSError):
     arcadefont = pygame.font.SysFont('arial', 16, bold=True)
+    energyfont = pygame.font.SysFont('arial', 10, bold=True)
+    healthfont = pygame.font.SysFont('arial', 8, bold=True)
     titlefont = pygame.font.SysFont('arial', 40, bold=True)
     btnfont = pygame.font.SysFont('arial', 24, bold=True)
     font_is_pixel = False
@@ -37,9 +42,10 @@ try:
 except (pygame.error, OSError):
     pass
 
-def draw_text(text, font, color, surface, x, y, align="left"):
-    # Disable antialiasing for the pixel font so glyphs render crisp and on-grid.
-    textobj = font.render(text, not font_is_pixel, color)
+def draw_text(text, font, color, surface, x, y, align="left", aa=True):
+    # Large pixel-font sizes (title, buttons) look best with AA on. HUD text
+    # renders inline with AA off where pixel-perfect crispness matters.
+    textobj = font.render(text, aa, color)
     textrect = textobj.get_rect()
     if align == "center":
         textrect.center = (x, y)
@@ -58,21 +64,43 @@ all_sprites.add(player)
 running = True
 in_menu = True
 paused = False
+game_over = False
 spawn_timer = 0
 shoot_timer = 0
 bg_y = 0
 
-# HUD: both bars stacked on the right, health on top, energy below
-BAR_FILL_W = 150
-BAR_FILL_H = 20
-BOX_W = BAR_FILL_W + 4
-BOX_H = BAR_FILL_H + 4
-HUD_X = WIDTH - BOX_W - 16
-HEALTH_BOX = pygame.Rect(HUD_X, 636, BOX_W, BOX_H)
-ENERGY_BOX = pygame.Rect(HUD_X, 668, BOX_W, BOX_H)
+# HUD: both bars stacked on the right, health on top (smaller), energy below
+ENERGY_FILL_W = 100
+ENERGY_FILL_H = 12
+ENERGY_BOX_W = ENERGY_FILL_W + 4
+ENERGY_BOX_H = ENERGY_FILL_H + 4
+# Health bar is 75% of the energy bar — same aspect ratio, smaller overall.
+HEALTH_FILL_W = int(ENERGY_FILL_W * 0.75)
+HEALTH_FILL_H = int(ENERGY_FILL_H * 0.75)
+HEALTH_BOX_W = HEALTH_FILL_W + 4
+HEALTH_BOX_H = HEALTH_FILL_H + 4
+HUD_X = WIDTH - ENERGY_BOX_W - 16
+ENERGY_BOX_Y = HEIGHT - ENERGY_BOX_H - 8
+HEALTH_BOX_Y = ENERGY_BOX_Y - HEALTH_BOX_H - 4
+HEALTH_BOX = pygame.Rect(HUD_X, HEALTH_BOX_Y, HEALTH_BOX_W, HEALTH_BOX_H)
+ENERGY_BOX = pygame.Rect(HUD_X, ENERGY_BOX_Y, ENERGY_BOX_W, ENERGY_BOX_H)
 HUD_FADE_SPEED = 1000  # alpha units per second
 energy_alpha = 255.0
 health_alpha = 255.0
+
+def reset_game():
+    global player, spawn_timer, shoot_timer, bg_y, game_over, energy_alpha, health_alpha
+    all_sprites.empty()
+    enemies.empty()
+    bullets.empty()
+    player = Player()
+    all_sprites.add(player)
+    spawn_timer = 0
+    shoot_timer = 0
+    bg_y = 0
+    energy_alpha = 255.0
+    health_alpha = 255.0
+    game_over = False
 
 # --- MAIN LOOP ---
 while running:
@@ -98,10 +126,17 @@ while running:
     # --- GAME LOOP ---
     for event in pygame.event.get():
         if event.type == pygame.QUIT: running = False
-        if event.type == pygame.KEYDOWN and event.key in (pygame.K_p, pygame.K_ESCAPE):
-            paused = not paused
+        if event.type == pygame.KEYDOWN:
+            if game_over:
+                if event.key == pygame.K_r:
+                    reset_game()
+                elif event.key == pygame.K_m:
+                    reset_game()
+                    in_menu = True
+            elif event.key in (pygame.K_p, pygame.K_ESCAPE):
+                paused = not paused
 
-    if not paused:
+    if not paused and not game_over:
         # Shoot
         shoot_timer += dt
         if shoot_timer > 0.6:
@@ -145,7 +180,8 @@ while running:
                     e.die() # Trigger the explosion animation
 
             if player.health <= 0:
-                running = False
+                player.health = 0
+                game_over = True
 
         # Draw Background
         bg_y += 100 * dt
@@ -169,27 +205,28 @@ while running:
     elif health_alpha > health_target:
         health_alpha = max(health_alpha - step, health_target)
 
-    # Energy bar (bottom)
-    energy_fill = int(max(0, min(player.energy, 100)) / 100 * BAR_FILL_W)
-    energy_surf = pygame.Surface((BOX_W, BOX_H), pygame.SRCALPHA)
-    pygame.draw.rect(energy_surf, (0,0,255), (2, 2, energy_fill, BAR_FILL_H))
-    pygame.draw.rect(energy_surf, (255,255,255), (0, 0, BOX_W, BOX_H), 2)
     aa = not font_is_pixel
+
+    # Energy bar (bottom)
+    energy_fill = int(max(0, min(player.energy, 100)) / 100 * ENERGY_FILL_W)
+    energy_surf = pygame.Surface((ENERGY_BOX_W, ENERGY_BOX_H), pygame.SRCALPHA)
+    pygame.draw.rect(energy_surf, (0,0,255), (2, 2, energy_fill, ENERGY_FILL_H))
+    pygame.draw.rect(energy_surf, (255,255,255), (0, 0, ENERGY_BOX_W, ENERGY_BOX_H), 2)
     if player.energy < 30 and (pygame.time.get_ticks() // 300) % 2 == 0:
-        label = arcadefont.render("LOW ENERGY", aa, (255, 60, 60))
+        label = energyfont.render("LOW ENERGY", aa, (255, 60, 60))
     else:
-        label = arcadefont.render("ENERGY", aa, (255,255,255))
-    energy_surf.blit(label, label.get_rect(center=(BOX_W // 2, BOX_H // 2)))
+        label = energyfont.render("ENERGY", aa, (255,255,255))
+    energy_surf.blit(label, label.get_rect(center=(ENERGY_BOX_W // 2, ENERGY_BOX_H // 2)))
     energy_surf.set_alpha(int(energy_alpha))
     screen.blit(energy_surf, ENERGY_BOX.topleft)
 
-    # Health bar (top)
-    health_fill = int(max(0, min(player.health, 100)) / 100 * BAR_FILL_W)
-    health_surf = pygame.Surface((BOX_W, BOX_H), pygame.SRCALPHA)
-    pygame.draw.rect(health_surf, (255,0,0), (2, 2, health_fill, BAR_FILL_H))
-    pygame.draw.rect(health_surf, (255,255,255), (0, 0, BOX_W, BOX_H), 2)
-    label = arcadefont.render("HEALTH", aa, (255,255,255))
-    health_surf.blit(label, label.get_rect(center=(BOX_W // 2, BOX_H // 2)))
+    # Health bar (top, 75% size, smaller label to match)
+    health_fill = int(max(0, min(player.health, 100)) / 100 * HEALTH_FILL_W)
+    health_surf = pygame.Surface((HEALTH_BOX_W, HEALTH_BOX_H), pygame.SRCALPHA)
+    pygame.draw.rect(health_surf, (255,0,0), (2, 2, health_fill, HEALTH_FILL_H))
+    pygame.draw.rect(health_surf, (255,255,255), (0, 0, HEALTH_BOX_W, HEALTH_BOX_H), 2)
+    label = healthfont.render("HEALTH", aa, (255,255,255))
+    health_surf.blit(label, label.get_rect(center=(HEALTH_BOX_W // 2, HEALTH_BOX_H // 2)))
     health_surf.set_alpha(int(health_alpha))
     screen.blit(health_surf, HEALTH_BOX.topleft)
 
@@ -200,6 +237,15 @@ while running:
         screen.blit(overlay, (0, 0))
         draw_text("PAUSED", titlefont, (255,255,255), screen, WIDTH//2, HEIGHT//2 - 20, "center")
         draw_text("Press P to resume", arcadefont, (255,255,255), screen, WIDTH//2, HEIGHT//2 + 30, "center")
+
+    if game_over:
+        overlay = pygame.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(180)
+        overlay.fill((0, 0, 0))
+        screen.blit(overlay, (0, 0))
+        draw_text("GAME OVER", titlefont, (255, 60, 60), screen, WIDTH//2, HEIGHT//2 - 40, "center")
+        draw_text("R - RESTART", arcadefont, (255,255,255), screen, WIDTH//2, HEIGHT//2 + 20, "center")
+        draw_text("M - MAIN MENU", arcadefont, (255,255,255), screen, WIDTH//2, HEIGHT//2 + 50, "center")
 
     pygame.display.flip()
 
