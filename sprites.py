@@ -13,13 +13,15 @@ def load_img(path, size=None):
     try:
         if not os.path.exists(path):
             surf = pygame.Surface(size if size else (50,50))
-            surf.fill((255, 0, 255)) 
+            surf.fill((255, 0, 255))
             return surf
-        img = pygame.image.load(path) 
+        img = pygame.image.load(path)
         if size: img = pygame.transform.scale(img, size)
         return img
-    except:
-        return pygame.Surface(size if size else (50,50))
+    except (pygame.error, OSError):
+        surf = pygame.Surface(size if size else (50,50))
+        surf.fill((255, 0, 255))
+        return surf
 
 # --- SLICING HELPERS ---
 def slice_4x4(sheet):
@@ -38,7 +40,7 @@ def slice_4x4(sheet):
                 image = sheet.subsurface(rect)
                 image = pygame.transform.scale(image, (60, 60))
                 frames.append(image)
-            except:
+            except (pygame.error, ValueError):
                 pass
     return frames
 
@@ -57,7 +59,7 @@ def slice_row(sheet, total_frames):
             # Scale to 30x30 for the game
             image = pygame.transform.scale(image, (30, 30))
             frames.append(image)
-        except:
+        except (pygame.error, ValueError):
             pass
     return frames
 
@@ -109,8 +111,10 @@ class Player(pygame.sprite.Sprite):
         if keys[pygame.K_a] or keys[pygame.K_LEFT]: self.pos_x -= move
         if keys[pygame.K_d] or keys[pygame.K_RIGHT]: self.pos_x += move
 
-        self.pos_x = max(0, min(self.pos_x, WIDTH))
-        self.pos_y = max(0, min(self.pos_y, HEIGHT))
+        half_w = self.rect.width / 2
+        half_h = self.rect.height / 2
+        self.pos_x = max(half_w, min(self.pos_x, WIDTH - half_w))
+        self.pos_y = max(half_h, min(self.pos_y, HEIGHT - half_h))
         self.rect.center = (int(self.pos_x), int(self.pos_y))
 
 class Bullet(pygame.sprite.Sprite):
@@ -136,6 +140,8 @@ class Bullet(pygame.sprite.Sprite):
             self.exploding = True
             self.frames = self.hit_anim
             self.current_frame = 0
+            self.image = self.frames[0]
+            self.anim_timer = 0
             self.speed = 0
 
     def update(self, dt):
@@ -164,8 +170,8 @@ class Enemy(pygame.sprite.Sprite):
         super().__init__()
         self.image = enemy_img
         self.rect = self.image.get_rect()
-        self.pos_y = -50
-        self.rect.x = random.randint(0, WIDTH - 50)
+        self.pos_y = -self.rect.height
+        self.rect.x = random.randint(0, WIDTH - self.rect.width)
         self.rect.y = self.pos_y
         self.speed = random.randint(200, 300) 
         self.hp = 2

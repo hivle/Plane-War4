@@ -20,7 +20,7 @@ try:
     arcadefont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 15)
     titlefont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 40)
     btnfont = pygame.font.Font(os.path.join('resources','Fonts','ka1.ttf'), 25)
-except:
+except (pygame.error, OSError):
     arcadefont = pygame.font.SysFont('arial', 15, bold=True)
     titlefont = pygame.font.SysFont('arial', 40, bold=True)
     btnfont = pygame.font.SysFont('arial', 25, bold=True)
@@ -30,7 +30,7 @@ try:
     pygame.mixer.music.load(os.path.join('resources','sound','Street Fighter - Guile Stage.mp3'))
     pygame.mixer.music.play(-1)
     pygame.mixer.music.set_volume(0.3)
-except:
+except (pygame.error, OSError):
     pass
 
 def draw_text(text, font, color, surface, x, y, align="left"):
@@ -82,19 +82,19 @@ while running:
 
     # Shoot
     shoot_timer += dt
-    if shoot_timer > 0.6: 
+    if shoot_timer > 0.6:
         b = Bullet(player.rect.centerx, player.rect.top)
         all_sprites.add(b)
         bullets.add(b)
-        shoot_timer = 0
+        shoot_timer -= 0.6
 
     # Spawn
     spawn_timer += dt
-    if spawn_timer > 1.2: 
+    if spawn_timer > 1.2:
         e = Enemy()
         all_sprites.add(e)
         enemies.add(e)
-        spawn_timer = 0
+        spawn_timer -= 1.2
 
     all_sprites.update(dt)
 
